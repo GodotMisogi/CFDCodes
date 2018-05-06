@@ -1,7 +1,9 @@
 
 # **CFDPyRun**
 
-This notebook consists of my run-through of Prof. Lorena Barba's "12 steps to Navier-Stokes" course, because I admit I have a problem with fluids. It is set in a "professor first, student next" fashion, with the student developing the stock functions with his/her own ideas. The development is chronologically presented.
+This 'notebook' consists of my run-through of Prof. Lorena Barba's "[12 steps to Navier-Stokes](http://lorenabarba.com/blog/cfd-python-12-steps-to-navier-stokes/)" course, because I admit I have a problem with fluids. It is set in a "professor first, student next" fashion, with the student developing the stock functions with his/her own ideas. The development is presented in order of relevance to the corresponding step rather than chronologically. Most of the partial differential equations here are numerically solved using forward difference methods in time and backward difference methods in space.
+
+Programming CFD methods is crucial in understanding how fluid solvers work because it allows one to learn about all possible points of error when running analyses through industrial software/packages, reducing debugging time in the long run.
 
 #### Python libraries
 
@@ -27,6 +29,10 @@ rc('text', usetex=True)
 Partial differential equation: $$ \frac{\partial u}{\partial t} + c\frac{\partial u}{\partial x} = 0 $$
 
 Discretised: $$ \frac{u^{n+1}_i - u^n_i}{\Delta t} + c\frac{u^n_i - u^n_{i-1}}{\Delta x} = 0 $$
+
+The initial condition for most of these equations will be a hat function with the following definition:
+
+$$ u(x,0)= \begin{cases} 2, & x \in [0.5,1] \\ 1, & \mathrm{everywhere\;else} \end{cases} $$ 
 
 
 ```python
@@ -109,6 +115,8 @@ linearConvection(40)
 Partial differential equation: $$ \frac{\partial u}{\partial t} + u\frac{\partial u}{\partial x} = 0 $$
 
 Discretised: $$ \frac{u^{n+1}_i - u^n_i}{\Delta t} + u^n_i\frac{u^n_i - u^n_{i-1}}{\Delta x} = 0 $$
+
+Initial condition: $$ u(x,0)= \begin{cases} 2, & x \in [0.5,1] \\ 1, & \mathrm{everywhere\;else} \end{cases} $$ 
 
 
 ```python
@@ -263,6 +271,8 @@ Partial differential equation: $$ \frac{\partial u}{\partial t} = \nu \frac{\par
 
 Discretised: $$ \frac{u^{n+1}_i - u^n_i}{\Delta t} = \nu\frac{u^n_{i+1} - 2u^n_i + u^n_{i-1}}{(\Delta x)^2} $$
 
+Initial condition: $$ u(x,0)= \begin{cases} 2, & x \in [0.5,1] \\ 1, & \mathrm{everywhere\;else} \end{cases} $$ 
+
 
 ```python
 nx = 41
@@ -299,7 +309,50 @@ pyplot.show()
 
 #### Student
 
-This version forces the Courant Number to be 0.2 and calculates the time-step based on the mesh size accordingly for "accurate" results. It also takes user input of simulation time.
+__Analytical Solution of the Diffusion Equation (Initial Value Problem) using a Fourier Transform:__
+
+Let $ u(x,t) = \exp\left[-\psi(x,t)/\nu\right] $, then taking a spatial Fourier transform $\mathcal F_x$ of the equation:
+
+$$ \frac{\partial u_F(k,t)}{\partial t} + \nu k^2 u_F(k,t) = 0 $$ 
+
+This ODE is easily solved:
+$$ u_F(k,t) = u(k,0)e^{-\nu k^2 t}, \quad u(k,0) = \mathcal F_x[u(x,0)] $$
+
+To find the inverse spatial Fourier transform, we invoke the convolution theorem:
+
+$$ u(x,t) = \mathcal F_x^{-1}\left[u_F(k,t)\right] =  \mathcal F_x^{-1}[u(k,0)] * \mathcal F_x^{-1} \left[e^{-\nu k^2 t}\right] = u(x,0) * \mathcal F_x^{-1} \left[e^{-\nu k^2 t}\right] $$
+
+The second inverse transform is the Fourier transform of a Gaussian, which is nicely found in the following manner. Let $f(k) = e^{-\nu k^2 t}$ (with $\nu$ and $t$ as parameters), now differentiate and take the Fourier transform:
+
+$$ ixf(x) = -2\nu t \cdot i f'(x) $$ 
+
+$$ \implies f(x) = \frac{1}{\sqrt{4\pi\nu t}}\exp\left(-\frac{x^2}{4\nu t}\right) $$
+
+Using the definition of convolution, the solution can be expressed as:
+
+$$ u(x,t) = \frac{1}{\sqrt{4\pi\nu t}}\int_{-\infty}^{\infty} u(y,0)\exp\left[-\frac{(x-y)^2}{4\nu t}\right] \mathrm dy $$
+
+_Note:_ This looks strangely similar to a Green's function. Let's apply this to the current case:
+
+$$ u(x,t) =  \frac{1}{\sqrt{4\pi\nu t}}\int_{-\infty}^{0.5}\exp\left[-\frac{(x-y)^2}{4\nu t}\right] \mathrm dy + \frac{2}{\sqrt{4\pi\nu t}}\int_{0.5}^{1}\exp\left[-\frac{(x-y)^2}{4\nu t}\right] \mathrm dy +  \frac{1}{\sqrt{4\pi\nu t}}\int_{1}^{\infty}\exp\left[-\frac{(x-y)^2}{4\nu t}\right] \mathrm dy$$
+
+There's no closed-form solution for these integrals. `:(` But these are expressible using the error function with the substitution:
+
+$$ \frac{x-y}{\sqrt{4\nu t}} = u, \quad \mathrm{erf}(x) =  \frac{2}{\sqrt{\pi}}\int_{0}^{x}e^{-u^2} \mathrm du $$
+
+$$ \implies  u(x,t) =  1 - \frac{1}{2}\mathrm{erf}\left(\frac{x-1}{\sqrt{4\nu t}}\right) + \frac{1}{2}\mathrm{erf}\left(\frac{x-0.5}{\sqrt{4\nu t}}\right)$$
+
+We can now compare our solver's accuracy with this "analytical" solution!
+
+__Note__: This version forces the Courant Number to be 0.2 and calculates the time-step based on the mesh size accordingly for "accurate" results. It takes user input of simulation time and also runs a calculation using the "analytical" solution for comparison.
+
+
+```python
+## Analytical solution setup using SymPy
+x, t, nu = sympy.symbols('x t nu')
+u_diffusion = 1 - 0.5*sympy.erf((x-1)/(sympy.sqrt(4*nu*t))) + 0.5*sympy.erf((x-0.5)/(sympy.sqrt(4*nu*t)))
+u_func_diffusion = sympy.lambdify((t,x,nu), u_diffusion, modules=['numpy', 'sympy'])
+```
 
 
 ```python
@@ -314,29 +367,30 @@ def diffusionEquation(mesh_size, time):
     x = numpy.linspace(0,2,mesh_size)
     u = numpy.ones((time_steps,mesh_size))
     u[0][int (.5/dx): int(1/dx + 1)] = 2.0
-
+    u_analytical = numpy.asarray([u_func_diffusion(time_steps*dt, xi, nu) for xi in x])
+    
     for n in range(time_steps-1):
         for i in range(1,mesh_size - 1):
             u[n+1][i] = u[n][i] + nu*dt/dx**2*(u[n][i+1] - 2*u[n][i] + u[n][i-1])
     
-    return x, u
+    return x, u, u_analytical
 
-pos, vel = diffusionEquation(100, 0.0333333)
+pos, vel, vel_analytical = diffusionEquation(100, 0.03333)
 
 # Plotting
 pyplot.figure(1,figsize=(7,3), dpi=120)
 pyplot.title('Student')
 pyplot.plot(pos, vel[0], label='Initial')
 pyplot.plot(pos, vel[-1], label='Final')
+pyplot.plot(pos, vel_analytical, '--', label='Analytical')
 pyplot.xlabel('Position (m)')
 pyplot.ylabel('Velocity (m/s)')
 pyplot.legend()
 pyplot.show()
-
 ```
 
 
-![png](CFDPython_files/CFDPython_30_0.png)
+![png](CFDPython_files/CFDPython_32_0.png)
 
 
 ### **Step 4: Burgers' Equation**
@@ -349,13 +403,15 @@ $$ \frac{\partial u}{\partial t} + u\frac{\partial u}{\partial x} = \nu\frac{\pa
 
 Discretised: $$ \frac{u^{n+1}_i - u^n_i}{\Delta t} + u^n_i\frac{u^n_i - u^n_{i-1}}{\Delta x} = \nu\frac{u^n_{i+1} - 2u^n_i + u^n_{i-1}}{(\Delta x)^2} $$
 
+__Student's modification:__ The notation has been clarified compared to the original presentation (including a missing condition).
+
 Initial conditions (using the analytical solution): 
 
 $$ u(x,0) = -\frac{2\nu}{\phi}\frac{\partial\phi}{\partial x} + 4 $$
 
 $$ \phi(x,0) = \exp\left(\frac{-x^2}{4\nu}\right) + \exp\left(\frac{-(x-2\pi)^2}{4\nu}\right) $$
 
-Boundary condition: $$ u(0,t) = u(2\pi,t) $$
+Boundary conditions: $$ u(0,t) = u(2\pi,t), \quad u'(0,t) = u'(2\pi, t)$$
 
 
 ```python
@@ -407,11 +463,11 @@ pyplot.show()
 ```
 
 
-![png](CFDPython_files/CFDPython_35_0.png)
+![png](CFDPython_files/CFDPython_37_0.png)
 
 
 
-![png](CFDPython_files/CFDPython_35_1.png)
+![png](CFDPython_files/CFDPython_37_1.png)
 
 
 #### Student
@@ -455,7 +511,7 @@ pyplot.show()
 ```
 
 
-![png](CFDPython_files/CFDPython_37_0.png)
+![png](CFDPython_files/CFDPython_39_0.png)
 
 
 ### **Aside: Kardar–Parisi–Zhang equation**
@@ -474,17 +530,30 @@ $$ \partial_x\left(\psi_t + \frac{\psi_x^2}{2} \right) = \nu\partial_x(\psi_{xx}
 
 Integrating with respect to x gives the following equation:
 
-$$ \frac{\partial \psi}{\partial t} + \frac{1}{2}\left(\frac{\partial \psi}{\partial x}\right)^2 = \nu\frac{\partial^2 \psi}{\partial x^2} $$
+$$ \frac{\partial \psi}{\partial t} + \frac{1}{2}\left(\frac{\partial \psi}{\partial x}\right)^2 = \nu\frac{\partial^2 \psi}{\partial x^2} + \alpha(t) $$
 
-This is the KPZ equation in one dimension, which seemingly generalises to:
+If $\alpha(t) = 0$, we obtain the KPZ equation in one dimension, which seemingly generalises to:
 
 $$ \frac{\partial \psi}{\partial t} + \frac{\lambda}{2}\left(\nabla \psi\right)^2 = \nu\nabla^2 \psi $$
 
 Whatever "$(\nabla \psi)^2$" means. Let $\lambda = 2$ and take the one-dimensional case, then the equation has an integrating factor (thanks to Vyn from freenode's `##math`!), which allows it to be written in the form of the 1-D diffusion equation:
 
-$$ \frac{\partial}{\partial t}\left[\exp\left(-\frac{\psi}{\nu}\right)\right] = \nu\frac{\partial^2}{\partial x^2}\left[\exp\left(-\frac{\psi}{\nu}\right)\right] $$ 
+$$ \frac{\partial}{\partial t}\left[\exp\left(-\frac{\psi}{\nu}\right)\right] = \nu\frac{\partial^2}{\partial x^2}\left[\exp\left(-\frac{\psi}{\nu}\right)\right] $$
 
-TODO: Add solution.
+Let's use the 1-D diffusion equation solver on this:
+
+__Analytical Solution of the Diffusion Equation using a Fourier Transform:__
+
+Expressing $u$ as a complex Fourier series:
+
+$$ u(x,t) = \sum_{n = -\infty}^{\infty} c_n(t) e^{in\pi x}, \quad c_n(t) = \frac{1}{2}\int_0^{2\pi} u(x,t)e^{-in\pi x}\,\mathrm dx$$
+
+Substituting this into the diffusion equation: 
+$$ \dot{c}_n(t) + \nu (n\pi)^2 c_n(t) = 0 $$
+
+$$ \implies c_n(t) = c_n(0)e^{-\nu(n\pi)^2 t} $$
+
+$$ \implies u(x,t) = \sum_{n = -\infty}^{\infty} c_n(0)e^{-\nu(n\pi)^2 t} e^{in\pi x} $$
 
 ### **Step 5: 2-D Linear Convection**
 
@@ -555,24 +624,24 @@ linearconv2D(1)
 linearconv2D(0)
 ```
 
-    Array operations took 0.011439886002335697 seconds
-    For loops took 3.0533901620074175 seconds
+    Array operations took 0.010211769986199215 seconds
+    For loops took 3.0373644400096964 seconds
 
 
 
-![png](CFDPython_files/CFDPython_45_1.png)
+![png](CFDPython_files/CFDPython_48_1.png)
 
 
 
-![png](CFDPython_files/CFDPython_45_2.png)
+![png](CFDPython_files/CFDPython_48_2.png)
 
 
 
-![png](CFDPython_files/CFDPython_45_3.png)
+![png](CFDPython_files/CFDPython_48_3.png)
 
 
 
-![png](CFDPython_files/CFDPython_45_4.png)
+![png](CFDPython_files/CFDPython_48_4.png)
 
 
 #### Student
@@ -620,11 +689,11 @@ pyplot.show()
 ```
 
 
-![png](CFDPython_files/CFDPython_48_0.png)
+![png](CFDPython_files/CFDPython_51_0.png)
 
 
 
-![png](CFDPython_files/CFDPython_48_1.png)
+![png](CFDPython_files/CFDPython_51_1.png)
 
 
 ### **Step 6: 2-D Convection**
@@ -645,7 +714,7 @@ $$ \frac{v^{n+1}_{i,j} - v^n_{i,j}}{\Delta t} + u^n_{i,j}\left(\frac{v^n_{i,j} -
 
 Initial conditions:
 
-$$ u, v = \begin{cases} 2, & \mathrm{for}\; x,y \in [0.5,1] \times [0.5,1] \\ 1, & \mathrm{everywhere\;else} \end{cases}$$
+$$ u, v = \begin{cases} 2, & x,y \in [0.5,1] \times [0.5,1] \\ 1, & \mathrm{everywhere\;else} \end{cases}$$
 
 Boundary conditions:
 
@@ -706,11 +775,11 @@ pyplot.show()
 ```
 
 
-![png](CFDPython_files/CFDPython_52_0.png)
+![png](CFDPython_files/CFDPython_55_0.png)
 
 
 
-![png](CFDPython_files/CFDPython_52_1.png)
+![png](CFDPython_files/CFDPython_55_1.png)
 
 
 #### Student
@@ -777,11 +846,11 @@ pyplot.show()
 ```
 
 
-![png](CFDPython_files/CFDPython_55_0.png)
+![png](CFDPython_files/CFDPython_58_0.png)
 
 
 
-![png](CFDPython_files/CFDPython_55_1.png)
+![png](CFDPython_files/CFDPython_58_1.png)
 
 
 ### **Step 7: 2-D Diffusion**
@@ -847,9 +916,9 @@ diffuse(50)
 ```
 
 
-![png](CFDPython_files/CFDPython_59_0.png)
+![png](CFDPython_files/CFDPython_62_0.png)
 
 
 
-![png](CFDPython_files/CFDPython_59_1.png)
+![png](CFDPython_files/CFDPython_62_1.png)
 
