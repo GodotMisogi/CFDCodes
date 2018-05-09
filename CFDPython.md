@@ -5,7 +5,7 @@ This 'notebook' consists of my run-through of Prof. Lorena Barba's "[12 steps to
 
 Programming CFD methods is crucial in understanding how fluid solvers work because it allows one to learn about all possible points of error when running analyses through industrial software/packages, reducing debugging time in the long run.
 
-#### Python libraries
+#### Python Libraries
 
 
 ```python
@@ -17,18 +17,23 @@ import time, sys
 from matplotlib import rc, pyplot, cm
 from sympy import init_printing
 from mpl_toolkits.mplot3d import Axes3D
+import timeit
 init_printing(use_latex=True)
 rc('font',**{'family':'serif'})
 rc('text', usetex=True)
 ```
 
-### **Step 1: 1-D Linear Convection**
+### **Step 1: 1D Linear Convection**
 
 #### Professor
 
-Partial differential equation: $$ \frac{\partial u}{\partial t} + c\frac{\partial u}{\partial x} = 0 $$
+Partial differential equation: 
 
-Discretised: $$ \frac{u^{n+1}_i - u^n_i}{\Delta t} + c\frac{u^n_i - u^n_{i-1}}{\Delta x} = 0 $$
+$$ \frac{\partial u}{\partial t} + c\frac{\partial u}{\partial x} = 0 $$
+
+Discretised: 
+
+$$ \frac{u^{n+1}_i - u^n_i}{\Delta t} + c\frac{u^n_i - u^n_{i-1}}{\Delta x} = 0 $$
 
 The initial condition for most of these equations will be a hat function with the following definition:
 
@@ -108,15 +113,21 @@ linearConvection(40)
 ![png](CFDPython_files/CFDPython_10_0.png)
 
 
-### **Step 2: 1-D Nonlinear Convection**
+### **Step 2: 1D Nonlinear Convection**
 
 #### Professor
 
-Partial differential equation: $$ \frac{\partial u}{\partial t} + u\frac{\partial u}{\partial x} = 0 $$
+Partial differential equation: 
 
-Discretised: $$ \frac{u^{n+1}_i - u^n_i}{\Delta t} + u^n_i\frac{u^n_i - u^n_{i-1}}{\Delta x} = 0 $$
+$$ \frac{\partial u}{\partial t} + u\frac{\partial u}{\partial x} = 0 $$
 
-Initial condition: $$ u(x,0)= \begin{cases} 2, & x \in [0.5,1] \\ 1, & \mathrm{everywhere\;else} \end{cases} $$ 
+Discretised: 
+
+$$ \frac{u^{n+1}_i - u^n_i}{\Delta t} + u^n_i\frac{u^n_i - u^n_{i-1}}{\Delta x} = 0 $$
+
+Initial condition: 
+
+$$ u(x,0)= \begin{cases} 2, & x \in [0.5,1] \\ 1, & \mathrm{everywhere\;else} \end{cases} $$ 
 
 
 ```python
@@ -185,7 +196,9 @@ pyplot.show()
 
 #### Professor
 
-Courant number: $$ \sigma = \frac{u\Delta t}{\Delta x} \leq \sigma_{\max} $$
+Courant number: 
+
+$$ \sigma = \frac{u\Delta t}{\Delta x} \leq \sigma_{\max} $$
 
 
 ```python
@@ -263,15 +276,21 @@ pyplot.show()
 ![png](CFDPython_files/CFDPython_23_1.png)
 
 
-### **Step 3: Diffusion Equation in 1-D**
+### **Step 3: Diffusion Equation in 1D**
 
 #### Professor
 
-Partial differential equation: $$ \frac{\partial u}{\partial t} = \nu \frac{\partial^2 u}{\partial x^2} $$
+Partial differential equation: 
 
-Discretised: $$ \frac{u^{n+1}_i - u^n_i}{\Delta t} = \nu\frac{u^n_{i+1} - 2u^n_i + u^n_{i-1}}{(\Delta x)^2} $$
+$$ \frac{\partial u}{\partial t} = \nu \frac{\partial^2 u}{\partial x^2} $$
 
-Initial condition: $$ u(x,0)= \begin{cases} 2, & x \in [0.5,1] \\ 1, & \mathrm{everywhere\;else} \end{cases} $$ 
+Discretised:
+
+$$ \frac{u^{n+1}_i - u^n_i}{\Delta t} = \nu\frac{u^n_{i+1} - 2u^n_i + u^n_{i-1}}{(\Delta x)^2} $$
+
+Initial condition: 
+
+$$ u(x,0)= \begin{cases} 2, & x \in [0.5,1] \\ 1, & \mathrm{everywhere\;else} \end{cases} $$ 
 
 
 ```python
@@ -309,13 +328,14 @@ pyplot.show()
 
 #### Student
 
-__Analytical Solution of the Diffusion Equation (Initial Value Problem) using a Fourier Transform:__
+__Analytical Solution of the Diffusion Equation using a Fourier Transform:__
 
-Let $ u(x,t) = \exp\left[-\psi(x,t)/\nu\right] $, then taking a spatial Fourier transform $\mathcal F_x$ of the equation:
+Take the spatial Fourier transform $\mathcal F_x$ of the equation with an initial value problem:
 
 $$ \frac{\partial u_F(k,t)}{\partial t} + \nu k^2 u_F(k,t) = 0 $$ 
 
 This ODE is easily solved:
+
 $$ u_F(k,t) = u(k,0)e^{-\nu k^2 t}, \quad u(k,0) = \mathcal F_x[u(x,0)] $$
 
 To find the inverse spatial Fourier transform, we invoke the convolution theorem:
@@ -332,7 +352,11 @@ Using the definition of convolution, the solution can be expressed as:
 
 $$ u(x,t) = \frac{1}{\sqrt{4\pi\nu t}}\int_{-\infty}^{\infty} u(y,0)\exp\left[-\frac{(x-y)^2}{4\nu t}\right] \mathrm dy $$
 
-_Note:_ This looks strangely similar to a Green's function. Let's apply this to the current case:
+__Note:__ This looks strangely similar to a Green's function with the kernel:
+
+$$ G(x,t;y,t) = \frac{1}{\sqrt{4\pi\nu t}}\exp\left[-\frac{(x-y)^2}{4\nu t}\right] $$
+
+Let's apply this to the current case:
 
 $$ u(x,t) =  \frac{1}{\sqrt{4\pi\nu t}}\int_{-\infty}^{0.5}\exp\left[-\frac{(x-y)^2}{4\nu t}\right] \mathrm dy + \frac{2}{\sqrt{4\pi\nu t}}\int_{0.5}^{1}\exp\left[-\frac{(x-y)^2}{4\nu t}\right] \mathrm dy +  \frac{1}{\sqrt{4\pi\nu t}}\int_{1}^{\infty}\exp\left[-\frac{(x-y)^2}{4\nu t}\right] \mathrm dy$$
 
@@ -375,7 +399,7 @@ def diffusionEquation(mesh_size, time):
     
     return x, u, u_analytical
 
-pos, vel, vel_analytical = diffusionEquation(100, 0.03333)
+pos, vel, vel_analytical = diffusionEquation(100, 0.0333)
 
 # Plotting
 pyplot.figure(1,figsize=(7,3), dpi=120)
@@ -401,17 +425,23 @@ Partial differential equation:
 
 $$ \frac{\partial u}{\partial t} + u\frac{\partial u}{\partial x} = \nu\frac{\partial^2 u}{\partial x^2} $$
 
-Discretised: $$ \frac{u^{n+1}_i - u^n_i}{\Delta t} + u^n_i\frac{u^n_i - u^n_{i-1}}{\Delta x} = \nu\frac{u^n_{i+1} - 2u^n_i + u^n_{i-1}}{(\Delta x)^2} $$
+Discretised: 
+
+$$ \frac{u^{n+1}_i - u^n_i}{\Delta t} + u^n_i\frac{u^n_i - u^n_{i-1}}{\Delta x} = \nu\frac{u^n_{i+1} - 2u^n_i + u^n_{i-1}}{(\Delta x)^2} $$
 
 __Student's modification:__ The notation has been clarified compared to the original presentation (including a missing condition).
 
 Initial conditions (using the analytical solution): 
 
-$$ u(x,0) = -\frac{2\nu}{\phi}\frac{\partial\phi}{\partial x} + 4 $$
+$$ \phi(x,t)_{t=0} = \exp\left[-\frac{\left(x - 4t - 2\pi\right)^{2}}{4 \nu \left(t + 1\right)}\right] + \exp\left[- \frac{\left(x-4t\right)^{2}}{4 \nu \left(t + 1\right)}\right] $$
 
-$$ \phi(x,0) = \exp\left(\frac{-x^2}{4\nu}\right) + \exp\left(\frac{-(x-2\pi)^2}{4\nu}\right) $$
+$$ u(x,0) = -\frac{2\nu}{\phi}\frac{\partial\phi}{\partial x} + 4 = - \frac{2 \nu}{e^{- \frac{\left(x - 2\pi\right)^{2}}{4 \nu}} + e^{- \frac{x^{2}}{4 \nu}}} \left(- \frac{x e^{- \frac{x^{2}}{4 \nu}}}{2 \nu} - \frac{1}{4 \nu} \left(2 x - 4\pi\right) e^{- \frac{\left(x - 4\pi\right)^{2}}{4 \nu}}\right) + 4 $$
 
-Boundary conditions: $$ u(0,t) = u(2\pi,t), \quad u'(0,t) = u'(2\pi, t)$$
+Boundary conditions: 
+
+$$ u(0,t) = u(2\pi,t), \quad u'(0,t) = u'(2\pi, t)$$
+
+
 
 
 ```python
@@ -420,7 +450,7 @@ x, t, nu = sympy.symbols('x t nu')
 phi = sympy.exp(-(x-4*t)**2/(4*nu*(t+1))) + sympy.exp(-(x-4*t-2*numpy.pi)**2/(4*nu*(t+1)))
 diffphi = sympy.diff(phi, x)
 u = -2*nu/phi*diffphi + 4
-ufunc = sympy.lambdify((t,x,nu), u)
+ufunc = sympy.lambdify((t,x,nu), u, modules=['sympy'])
 ```
 
 
@@ -536,13 +566,32 @@ If $\alpha(t) = 0$, we obtain the KPZ equation in one dimension, which seemingly
 
 $$ \frac{\partial \psi}{\partial t} + \frac{\lambda}{2}\left(\nabla \psi\right)^2 = \nu\nabla^2 \psi $$
 
-Whatever "$(\nabla \psi)^2$" means. Let $\lambda = 2$ and take the one-dimensional case, then the equation has an integrating factor (thanks to Vyn from freenode's `##math`!), which allows it to be written in the form of the 1-D diffusion equation:
+Whatever "$(\nabla \psi)^2$" means. Let $\lambda = 1$ and take the one-dimensional case, then the equation has an integrating factor (thanks to Vyn from freenode's `##math`!), which allows it to be written in the form of the 1-D diffusion equation:
 
-$$ \frac{\partial}{\partial t}\left[\exp\left(-\frac{\psi}{\nu}\right)\right] = \nu\frac{\partial^2}{\partial x^2}\left[\exp\left(-\frac{\psi}{\nu}\right)\right] $$
+$$ \frac{\partial}{\partial t}\left[\exp\left(-\frac{\psi}{2\nu}\right)\right] = \nu\frac{\partial^2}{\partial x^2}\left[\exp\left(-\frac{\psi}{2\nu}\right)\right] $$
 
-Let's use the 1-D diffusion equation solver on this:
+Let's use the 1D diffusion equation solver on this:
 
-__Analytical Solution of the Diffusion Equation using a Fourier Transform:__
+__Analytical Solution of the Diffusion Equation using a Laplace Transform:__
+
+Taking the Laplace transform $\mathcal L_t$ in time:
+
+$$ su_L(x,s) - u(x,0) = \nu \frac{\partial^2 u_L}{\partial x^2}, \quad x \in [0,2\pi] $$
+
+$$ \frac{\partial^2 u_L}{\partial x^2} + \alpha^2 u_L = \frac{-u(x,0)}{\nu}, \quad \alpha = i\omega, \quad \omega = \sqrt{\frac{s}{\nu}} $$
+
+Looks like this is how the Green's function pops up (more canonically, of course).
+
+$$ u_L(x,s) = Ae^{i\omega x} + A^*e^{-i\omega x} + u_p(x,s), \quad A = \frac{1}{2}\left(u(0,s) - i\frac{u'(0,s)}{\omega}\right) $$
+
+The particular solution $u_p$ is found by using Green's function for the harmonic oscillator:
+
+$$ G(x,s;k,s) = \frac{\sin \alpha(x-k)}{\alpha} = \frac{\sinh \omega(x-k)}{\omega}$$
+
+$$ \implies u_p(x,s) = \int_{R} G(x,s;k,s) u(k,0)\,\mathrm dk = \frac{1}{\sqrt{s\nu}}\int_{0}^{2\pi} -u(k,0)\sinh\left[\sqrt{\frac{s}{v}}(x-k)\right]\,\mathrm dk$$ 
+
+
+__Analytical Solution of the Diffusion Equation using a Complex Fourier Series:__
 
 Expressing $u$ as a complex Fourier series:
 
@@ -555,21 +604,27 @@ $$ \implies c_n(t) = c_n(0)e^{-\nu(n\pi)^2 t} $$
 
 $$ \implies u(x,t) = \sum_{n = -\infty}^{\infty} c_n(0)e^{-\nu(n\pi)^2 t} e^{in\pi x} $$
 
-### **Step 5: 2-D Linear Convection**
+### **Step 5: 2D Linear Convection**
 
 #### Professor
 
-Partial differential equation: $$ \frac{\partial u}{\partial t} + c\left(\frac{\partial u}{\partial x} + \frac{\partial u}{\partial y} \right) = 0 $$
+Partial differential equation: 
 
-Discretised: $$ \frac{u^{n+1}_{i,j} - u^n_{i,j}}{\Delta t} + c\left(\frac{u^n_{i,j} - u^n_{i-1,j}}{\Delta x} + \frac{u^n_{i,j} - u^n_{i,j-1}}{\Delta y}\right) = 0 $$`
+$$ \frac{\partial u}{\partial t} + c\left(\frac{\partial u}{\partial x} + \frac{\partial u}{\partial y} \right) = 0 $$
 
-__Student's modification:__ This has been modified into a function to take one input with two options, a "fast" (which uses array operations with NumPy) and a "slow" (which uses `for` loops). For fast, input `1` into the function, otherwise input any other number for slow. `timeit` has been imported to clock the processing speeds of each variant.
+Discretised: 
+
+$$ \frac{u^{n+1}_{i,j} - u^n_{i,j}}{\Delta t} + c\left(\frac{u^n_{i,j} - u^n_{i-1,j}}{\Delta x} + \frac{u^n_{i,j} - u^n_{i,j-1}}{\Delta y}\right) = 0 $$
+
+Initial condition: 
+
+$$ u(x,0)= \begin{cases} 2, & x \in [0.5,1] \\ 1, & \mathrm{everywhere\;else} \end{cases} $$ 
+
+__Student's modification:__ This has been modified into a function to take a variable argument, which decides whether to use a "fast" (which uses array operations with NumPy) or a "slow" (which uses `for` loops) implementation. Fast is implemented by default, and the slow variant can be implemented by feeding `False` into the function. `timeit` has been imported to clock the processing speeds of each variant.
 
 
 ```python
-import timeit
-
-def linearconv2D(speed):
+def linearconv2D(fast=True):
     nx = 81
     ny = 81
     dx = 2.0/(nx - 1)
@@ -578,6 +633,7 @@ def linearconv2D(speed):
     sigma = 0.2
     nt = 100
     dt = sigma*dx
+
     x = numpy.linspace(0, 2, nx)
     y = numpy.linspace(0, 2, ny)
     
@@ -590,7 +646,7 @@ def linearconv2D(speed):
     X, Y = numpy.meshgrid(x,y)
     surf = ax.plot_surface(X, Y, u[:], cmap=cm.viridis)
     
-    if speed == 1:
+    if fast:
         tick = timeit.default_timer()
         for n in range(nt + 1):
             un = u.copy()
@@ -620,28 +676,28 @@ def linearconv2D(speed):
     ax = fig.gca(projection='3d')
     surf2 = ax.plot_surface(X, Y, u[:], cmap=cm.viridis)
     
-linearconv2D(1)
-linearconv2D(0)
+linearconv2D()
+linearconv2D(False)
 ```
 
-    Array operations took 0.010211769986199215 seconds
-    For loops took 3.0373644400096964 seconds
+    Array operations took 0.008933092000006582 seconds
+    For loops took 2.8119781100012915 seconds
 
 
 
-![png](CFDPython_files/CFDPython_48_1.png)
+![png](CFDPython_files/CFDPython_49_1.png)
 
 
 
-![png](CFDPython_files/CFDPython_48_2.png)
+![png](CFDPython_files/CFDPython_49_2.png)
 
 
 
-![png](CFDPython_files/CFDPython_48_3.png)
+![png](CFDPython_files/CFDPython_49_3.png)
 
 
 
-![png](CFDPython_files/CFDPython_48_4.png)
+![png](CFDPython_files/CFDPython_49_4.png)
 
 
 #### Student
@@ -689,14 +745,14 @@ pyplot.show()
 ```
 
 
-![png](CFDPython_files/CFDPython_51_0.png)
+![png](CFDPython_files/CFDPython_52_0.png)
 
 
 
-![png](CFDPython_files/CFDPython_51_1.png)
+![png](CFDPython_files/CFDPython_52_1.png)
 
 
-### **Step 6: 2-D Convection**
+### **Step 6: 2D Convection**
 
 #### Professor
 
@@ -706,7 +762,7 @@ $$ \frac{\partial u}{\partial t} + u\frac{\partial u}{\partial x} + v\frac{\part
 
 $$ \frac{\partial v}{\partial t} + u\frac{\partial v}{\partial x} + v\frac{\partial v}{\partial y}  = 0 $$
 
-Discretised:
+(I think there's a factor $c$ missing in them.) Discretised:
 
 $$ \frac{u^{n+1}_{i,j} - u^n_{i,j}}{\Delta t} + u^n_{i,j}\left(\frac{u^n_{i,j} - u^n_{i-1,j}}{\Delta x}\right) + v^n_{i,j}\left(\frac{u^n_{i,j} - u^n_{i,j-1}}{\Delta y}\right) = 0 $$
 
@@ -740,8 +796,8 @@ v = numpy.ones((ny, nx))
 un = numpy.ones((ny, nx))
 vn = numpy.ones((ny, nx))
 
-u[int(.5/dy):int(1/dy + 1),int(.5/dx):int(1/dx+1)] = 2
-v[int(.5/dy):int(1/dy + 1),int(.5/dx):int(1/dx+1)] = 2
+u[int(.5 / dy):int(1 / dy + 1),int(.5 / dx):int(1 / dx + 1)] = 2  
+v[int(.5 / dy):int(1 / dy + 1),int(.5 / dx):int(1 / dx + 1)] = 2  
 
 fig = pyplot.figure(figsize=(9,7), dpi=100)
 ax = fig.gca(projection='3d')
@@ -760,6 +816,7 @@ for n in range(nt + 1):
     u[-1, :] = 1
     u[:, 0] = 1
     u[:, -1] = 1
+    
     v[0, :] = 1
     v[-1, :] = 1
     v[:, 0] = 1
@@ -775,58 +832,60 @@ pyplot.show()
 ```
 
 
-![png](CFDPython_files/CFDPython_55_0.png)
+![png](CFDPython_files/CFDPython_56_0.png)
 
 
 
-![png](CFDPython_files/CFDPython_55_1.png)
+![png](CFDPython_files/CFDPython_56_1.png)
 
 
 #### Student
 
 These PDEs can be written concisely in tensor notation using Einstein's summation convention:
 
-$$ \partial_t V^{\alpha} + V^{\mu}\partial_{\mu}V^{\alpha} = 0 $$ 
+$$ \partial_t V^{\alpha} + cV^{\mu}\partial_{\mu}V^{\alpha} = 0 $$ 
 
-However, there doesn't seem to be a neat way to write the discretisation in index notation.
+However, there doesn't seem to be a neat way to write the discretisation in index notation. The computation has been made slightly more efficient by computing `c*dt/dx` and `c*dt/dy` outside the `for` loop, since those values are fixed do not need to be computed repeatedly. The same applies to the boundary conditions.
 
 
 ```python
 def convection2D(mesh_size_x, mesh_size_y, time):
-    c = 1
+    c = 1.0
     dx = 2.0/(mesh_size_x-1)
     dy = 2.0/(mesh_size_y-1)
     sigma = 0.2
     dt = sigma*min(dx,dy)
     timesteps = int(time/dt)
     
-    x = numpy.linspace(0, 2, mesh_size_x)
-    y = numpy.linspace(0, 2, mesh_size_y)
+    x = numpy.linspace(0, 2.0, mesh_size_x)
+    y = numpy.linspace(0, 2.0, mesh_size_y)
 
     u = numpy.ones((timesteps, mesh_size_x, mesh_size_y))
     v = numpy.ones((timesteps, mesh_size_x, mesh_size_y))
     
     # Initial conditions
-    u[0][int(.5/dx):int(1/dx + 1),int(.5/dy):int(1/dy+1)] = 2
-    v[0][int(.5/dx):int(1/dx + 1),int(.5/dy):int(1/dy+1)] = 2
+    u[0][int(.5/dx):int(1/dx + 1),int(.5/dy):int(1/dy + 1)] = 2.0
+    v[0][int(.5/dx):int(1/dx + 1),int(.5/dy):int(1/dy + 1)] = 2.0
     
     # Boundary conditions
-    u[1:][0,:] = 1
-    u[1:][-1,:] = 1
-    u[1:][:,0] = 1
-    u[1:][:,-1] = 1
-    v[1:][0,:] = 1
-    v[1:][-1,:] = 1
-    v[1:][:,0] = 1
-    v[1:][:,-1] = 1
+    u[1:][0,:] = 1.0
+    u[1:][-1,:] = 1.0
+    u[1:][:,0] = 1.0
+    u[1:][:,-1] = 1.0
+    v[1:][0,:] = 1.0
+    v[1:][-1,:] = 1.0
+    v[1:][:,0] = 1.0
+    v[1:][:,-1] = 1.0
     
+    ctx = c*dt/dx
+    cty = c*dt/dy
     for n in range(timesteps-1):
-        u[n+1][1:, 1:] = u[n][1:, 1:] - c*dt*(u[n][1:, 1:]*(u[n][1:, 1:] - u[n][:-1, 1:])/dx - v[n][1:, 1:]*(u[n][1:, 1:] - u[n][1:, :-1])/dy)
-        v[n+1][1:, 1:] = v[n][1:, 1:] - c*dt*(u[n][1:, 1:]*(v[n][1:, 1:] - v[n][:-1, 1:])/dx - v[n][1:, 1:]*(v[n][1:, 1:] - v[n][1:, :-1]/dy))
+        u[n+1][1:,1:] = u[n][1:,1:] - ctx*(u[n][1:,1:]*(u[n][1:,1:] - u[n][:-1,1:])) - cty*(v[n][1:,1:]*(u[n][1:,1:] - u[n][1:,:-1]))
+        v[n+1][1:,1:] = v[n][1:,1:] - ctx*(u[n][1:,1:]*(v[n][1:,1:] - v[n][:-1,1:])) - cty*(v[n][1:,1:]*(v[n][1:,1:] - v[n][1:,:-1]))
 
     return x, y, u, v
     
-pos_x, pos_y, vel_x, vel_y = convection2D(101, 101, 0.02)
+pos_x, pos_y, vel_x, vel_y = convection2D(201, 201, 0.32)
 
 # Plotting
 fig = pyplot.figure(1, figsize=(9, 7), dpi=100)
@@ -836,41 +895,52 @@ surf = ax.plot_surface(X, Y, vel_x[0], cmap=cm.viridis, rstride=2, cstride=2)
 ax.set_xlabel('$x$')
 ax.set_ylabel('$y$')
 
-fig = pyplot.figure(2, figsize=(9, 7), dpi=100)
-ax = fig.gca(projection='3d')
+fig2 = pyplot.figure(2, figsize=(9, 7), dpi=100)
+ax = fig2.gca(projection='3d')
 X, Y = numpy.meshgrid(pos_x, pos_y)
-surf2 = ax.plot_surface(X, Y, vel_x[-1], cmap=cm.viridis, rstride=2, cstride=2)
+surf2 = ax.plot_surface(X, Y, vel_y[-1], cmap=cm.viridis, rstride=2, cstride=2)
 ax.set_xlabel('$x$')
 ax.set_ylabel('$y$')
 pyplot.show()
 ```
 
 
-![png](CFDPython_files/CFDPython_58_0.png)
+![png](CFDPython_files/CFDPython_59_0.png)
 
 
 
-![png](CFDPython_files/CFDPython_58_1.png)
+![png](CFDPython_files/CFDPython_59_1.png)
 
 
-### **Step 7: 2-D Diffusion**
+### **Step 7: 2D Diffusion**
 
 #### Professor
 
-Partial differential equation: $$ \frac{\partial u}{\partial t} = \nu\left(\frac{\partial^2 u}{\partial x^2} + \frac{\partial^2 u}{\partial y^2}\right) $$
+Partial differential equation: 
 
-Discretised: $$ \frac{u^{n+1}_i - u^n_i}{\Delta t} = \nu\left[\frac{u^n_{i+1} - 2u^n_i + u^n_{i-1}}{(\Delta x)^2} + \frac{u^n_{i+1} - 2u^n_i + u^n_{i-1}}{(\Delta y)^2}\right] $$
+$$ \frac{\partial u}{\partial t} = \nu\left(\frac{\partial^2 u}{\partial x^2} + \frac{\partial^2 u}{\partial y^2}\right) $$
+
+Discretised: 
+
+$$ \frac{u^{n+1}_i - u^n_i}{\Delta t} = \nu\left[\frac{u^n_{i+1} - 2u^n_i + u^n_{i-1}}{(\Delta x)^2} + \frac{u^n_{i+1} - 2u^n_i + u^n_{i-1}}{(\Delta y)^2}\right] $$
+
+Initial conditions:
+
+$$ u, v = \begin{cases} 2, & x,y \in [0.5,1] \times [0.5,1] \\ 1, & \mathrm{everywhere\;else} \end{cases}$$
+
+Boundary conditions:
+
+$$ u = 1, v = 1 \;\mathrm{for} \begin{cases} x = 0,2 \\ y = 0,2 \end{cases} $$
 
 
 ```python
 nx = 31
 ny = 31
-nt = 17
 nu = .05
 dx = 2 / (nx - 1)
 dy = 2 / (ny - 1)
 sigma = .25
-dt = sigma*dt*dy/nu
+dt = sigma*dx*dy/nu
 
 x = numpy.linspace(0,2,nx)
 y = numpy.linspace(0,2,ny)
@@ -895,10 +965,10 @@ ax.set_ylabel('$y$')
 
 def diffuse(nt):
     u[int(.5 / dy):int(1 / dy + 1),int(.5 / dx):int(1 / dx + 1)] = 2  # Why is this repeated?
-    
+
     for n in range(nt+1):
         un = u.copy()
-        u[1:-1,1:-1] = un[1:-1,1:-1] + nu*dt*((un[1:-1,2:] - 2*un[1:-1,1:-1] + un[1:-1,0:-2])/dy**2 + (un[2:,1:-1] - 2*un[1:-1,1:-1] + un[0:-2,1:-1])/dx**2)
+        u[1:-1, 1:-1] = (un[1:-1,1:-1] + nu * dt / dx**2 * (un[1:-1, 2:] - 2 * un[1:-1, 1:-1] + un[1:-1, 0:-2]) + nu * dt / dy**2 * (un[2:,1: -1] - 2 * un[1:-1, 1:-1] + un[0:-2, 1:-1]))
         u[0,:] = 1
         u[-1,:] = 1
         u[:,0] = 1
@@ -916,9 +986,129 @@ diffuse(50)
 ```
 
 
-![png](CFDPython_files/CFDPython_62_0.png)
+![png](CFDPython_files/CFDPython_63_0.png)
 
 
 
-![png](CFDPython_files/CFDPython_62_1.png)
+![png](CFDPython_files/CFDPython_63_1.png)
+
+
+#### Student
+
+
+```python
+def diffusion2D(mesh_size_x, mesh_size_y, time):
+    nu = 0.05
+    dx = 2.0/(mesh_size_x-1)
+    dy = 2.0/(mesh_size_y-1)
+    sigma = 0.25
+    dt = sigma*dx*dy/nu
+    timesteps = int(time/dt)
+    
+    x = numpy.linspace(0, 2, mesh_size_x)
+    y = numpy.linspace(0, 2, mesh_size_y)
+
+    u = numpy.ones((timesteps, mesh_size_x, mesh_size_y))
+    
+    # Initial conditions
+    u[0][int(.5/dx):int(1/dx + 1),int(.5/dy):int(1/dy + 1)] = 2
+    
+    # Boundary conditions
+    u[1:][0,:] = 1
+    u[1:][-1,:] = 1
+    u[1:][:,0] = 1
+    u[1:][:,-1] = 1
+    
+    lambda_x = nu*dt/dx**2
+    lambda_y = nu*dt/dy**2
+    for n in range(timesteps-1):
+        u[n+1][1:-1,1:-1] = u[n][1:-1,1:-1] + lambda_x*(u[n][1:-1,2:] - 2*u[n][1:-1,1:-1] + u[n][1:-1,0:-2]) + lambda_y*(u[n][2:,1:-1,] - 2*u[n][1:-1,1:-1] + u[n][0:-2,1:-1])
+        
+    return x, y, u
+    
+pos_x, pos_y, vel_x = diffusion2D(31, 31, 0.5)
+
+# Plotting
+fig = pyplot.figure(1, figsize=(9, 7), dpi=100)
+ax = fig.gca(projection='3d')
+X, Y = numpy.meshgrid(pos_x, pos_y)
+surf = ax.plot_surface(X, Y, vel_x[0], rstride=1, cstride=1, cmap=cm.viridis, linewidth=0, antialiased=False)
+ax.set_xlabel('$x$')
+ax.set_ylabel('$y$')
+ax.set_xlim(0,2)
+ax.set_ylim(0,2)
+ax.set_zlim(1,2.5)
+
+
+fig2 = pyplot.figure(2, figsize=(9, 7), dpi=100)
+ax = fig2.gca(projection='3d')
+X, Y = numpy.meshgrid(pos_x, pos_y)
+surf2 = ax.plot_surface(X, Y, vel_x[-1], rstride=1, cstride=1, cmap=cm.viridis, linewidth=0, antialiased=True)
+ax.set_xlabel('$x$')
+ax.set_ylabel('$y$')
+ax.set_zlim(1,2.5)
+
+pyplot.show()
+```
+
+
+![png](CFDPython_files/CFDPython_65_0.png)
+
+
+
+![png](CFDPython_files/CFDPython_65_1.png)
+
+
+### **Step 8: Burgers' Equation in 2D**
+
+#### Professor
+
+Partial differential equations: 
+
+$$ \frac{\partial u}{\partial t} + u\frac{\partial u}{\partial x} + v\frac{\partial u}{\partial y} = \nu\left(\frac{\partial^2 u}{\partial x^2} + \frac{\partial^2 u}{\partial y^2}\right) $$
+
+$$ \frac{\partial v}{\partial t} + u\frac{\partial v}{\partial x} + v\frac{\partial v}{\partial y} = \nu\left(\frac{\partial^2 v}{\partial x^2} + \frac{\partial^2 v}{\partial y^2}\right) $$
+
+Discretised: 
+
+$$ \frac{u^{n+1}_i - u^n_i}{\Delta t} + u^n_{i,j}\left(\frac{u^n_{i,j} - u^n_{i-1,j}}{\Delta x}\right) + v^n_{i,j}\left(\frac{u^n_{i,j} - u^n_{i,j-1}}{\Delta y}\right) = \nu\left[\frac{u^n_{i+1} - 2u^n_i + u^n_{i-1}}{(\Delta x)^2} + \frac{u^n_{i+1} - 2u^n_i + u^n_{i-1}}{(\Delta y)^2}\right] $$
+
+$$ \frac{v^{n+1}_i - v^n_i}{\Delta t} + u^n_{i,j}\left(\frac{v^n_{i,j} - v^n_{i-1,j}}{\Delta x}\right) + v^n_{i,j}\left(\frac{v^n_{i,j} - v^n_{i,j-1}}{\Delta y}\right) = \nu\left[\frac{v^n_{i+1} - 2v^n_i + v^n_{i-1}}{(\Delta x)^2} + \frac{v^n_{i+1} - 2v^n_i + v^n_{i-1}}{(\Delta y)^2}\right] $$
+
+
+```python
+nx = 41
+ny = 41
+nt = 120
+c = 1
+dx = 2 / (nx - 1)
+dy = 2 / (ny - 1)
+sigma = .0009
+nu = 0.01
+dt = sigma * dx * dy / nu
+
+x = numpy.linspace(0, 2, nx)
+y = numpy.linspace(0, 2, ny)
+
+u = numpy.ones((ny, nx))
+v = numpy.ones((ny, nx))
+un = numpy.ones((ny, nx)) 
+vn = numpy.ones((ny, nx))
+comb = numpy.ones((ny, nx))
+
+u[int(.5 / dy):int(1 / dy + 1),int(.5 / dx):int(1 / dx + 1)] = 2 
+v[int(.5 / dy):int(1 / dy + 1),int(.5 / dx):int(1 / dx + 1)] = 2 
+
+fig = pyplot.figure(figsize=(9, 7), dpi=100)
+ax = fig.gca(projection='3d')
+X, Y = numpy.meshgrid(x, y)
+ax.plot_surface(X, Y, u[:], cmap=cm.viridis, rstride=1, cstride=1)
+ax.plot_surface(X, Y, v[:], cmap=cm.viridis, rstride=1, cstride=1)
+ax.set_xlabel('$x$')
+ax.set_ylabel('$y$')
+pyplot.show()
+```
+
+
+![png](CFDPython_files/CFDPython_69_0.png)
 
