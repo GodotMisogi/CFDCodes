@@ -92,7 +92,7 @@ class Doublet2D:
         
     def potential(self, x, y):
         # CHECK THIS YOU RETARD
-        pot = self.strength/(2*np.pi)*np.log(np.sqrt((x - self.x_0)**2 + (y - self.y_0)**2))
+        pot = -self.strength/(2*np.pi)*(x - self.x_0)/((x - self.x_0)**2 + (y - self.y_0)**2)
         
         return pot
 
@@ -243,7 +243,7 @@ class SourcePanel2DSolver():
         """
         # Construct matrix for normal direction.
         An = np.array([ [ 0.5 if i == j else 0.5/np.pi*p_i.integral(p_j.xc, p_j.yc, np.cos(p_j.angle), np.sin(p_j.angle)) for i, p_i in enumerate(self.panels) ] for j, p_j in enumerate(self.panels) ], dtype=float)
-
+        
         # Construct freestream RHS.
         bn = -self.freestream.U*np.cos([ self.freestream.angle - panel.angle for panel in self.panels ]) 
 
@@ -268,7 +268,7 @@ class SourcePanel2DSolver():
         """
         # Construct matrix for tangential direction.
         At = np.array([ [ 0.0 if i == j else 0.5/np.pi*p_i.integral(p_j.xc, p_j.yc, -np.sin(p_j.angle), np.cos(p_j.angle)) for i, p_i in enumerate(self.panels) ] for j, p_j in enumerate(self.panels) ], dtype=float)
-        
+
         # Construct freestream RHS.
         bt = self.freestream.U*np.sin([ self.freestream.angle - panel.angle for panel in self.panels ]) 
 
