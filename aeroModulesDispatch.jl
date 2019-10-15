@@ -1,3 +1,5 @@
+# Implementing panel methods using multiple dispatch. Warning: Slow AF
+
 module panelSolver
 
     using QuadGK

@@ -39,7 +39,7 @@ class Uniform2D:
     Defines a uniform flow.
     
     Parameters:
-    1. u_inf = magnitude
+    1. u_inf = u
     2. alpha = angle
     """
     
@@ -165,7 +165,7 @@ def pressure_coefficient2D(u, v, u_inf):
 
 class Panel2D:
     """
-    Defines a panel of infinite sources in a given line segment.
+    Defines a panel in a given line segment.
     
     Parameters
     ---
@@ -227,6 +227,151 @@ class SourcePanel2D(Panel2D):
         v = self.strength/(2*np.pi)*intregral(x, y, 0.0, 1.0)
         
         return u, v
+
+def mag(xs):
+    return np.sqrt(sum(map(lambda x: x**2, xs)))
+
+# Transforms (x, y) to the coordinate system with (x_s, y_s) as origin oriented at angle_s.
+def panelCoords(x, y, x_s, y_s, angle_s): 
+    return rotation(x - x_s, y - y_s, angle_s)
+
+# Rotation matrices
+def invRotation(x, y, angle): 
+    return (x*np.cos(angle) - y*np.sin(angle), x*np.sin(angle) + y*np.cos(angle))
+def rotation(x, y, angle): 
+    return (x*np.cos(angle) + y*np.sin(angle), -x*np.sin(angle) + y*np.cos(angle))
+
+def pressureCoefficient2D(u, v, freestream_speed):
+    return 1. - (u**2 + v**2)/freestream_speed**2
+
+class DoubletPanel2D:
+
+    def __init__(self, xs, ys, xe, ye, strength=0.0, vt=0.0, cp=0.0):
+        self.xs, self.ys, self.xe, self.ye = xs, ys, xe, ye
+        self.strength, self.vt, self.cp =  0, 0, 0
+        self.length = mag([ xe - xs, ye - ys ])
+        self.angle = np.pi - np.arctan2(ye - ys, xe - xs)
+        self.loc = "lower" if (np.pi <= self.angle <= 2*np.pi) else "upper"
+        self.normal = np.array([np.cos(self.angle), np.sin(self.angle)])
+        self.tangent = np.array([-np.sin(self.angle), np.cos(self.angle)])
+    
+        # Collocation points in global coordinates
+        self.xc, self.yc = (xe + xs)/2.0, (ye + ys)/2.0
+
+        # Panel coordinates
+        self.xsl, self.ysl, self.xel, self.yel  = 0., 0., self.length, 0.
+        self.xcl, self.ycl = self.length/2., 0
+
+    def influence(self, xg, yg):
+        x, y = panelCoords(xg, yg, self.xs, self.ys, self.angle)
+        return [1/(2*np.pi)*(y/((x - self.xsl)**2 + y**2) - y/((x - self.xel)**2 + y**2)), -1/(2*np.pi)*((x - self.xsl)/((x - self.xsl)**2 + y**2) - (x - self.xel)/((x - self.xel)**2 + y**2))]      
+
+    def potential(self, x, y):
+        return self.strength/(4*np.pi)*(x - self.xc)/((x - self.xc)**2 + (y - self.yc)**2)
+
+    def velocity(self, xg, yg): 
+        x, y = panelCoords(xg, yg, self.xs, self.ys, self.angle)
+        return [self.strength/(2*np.pi)*(y/((x - self.xsl)**2 + y**2) - y/((x - self.xel)**2 + y**2)), -self.strength/(2*np.pi)*((x - self.xsl)/((x - self.xsl)**2 + y**2) - (x - self.xel)/((x - self.xel)**2 + y**2))]
+
+class DoubletPanelSolver2D:
+    """
+    Applies the doublet panel method to a list of panels and a uniform flow.
+    """
+    def __init__(self, panels, uniform):
+        self.panels = panels
+        self.num_panels = len(panels)
+        self.woke_panel = DoubletPanel2D(self.panels[-1].xe, self.panels[-1].ye, 1000*self.panels[-1].xe, self.panels[-1].ye)
+        self.uniform = uniform
+        self.u = [uniform.U*np.cos(uniform.angle), uniform.U*np.sin(uniform.angle)]
+        
+    def solveStrengths(self):
+        """
+        Solves for the doublet strengths of all panels.
+        """
+        # Construct doublet influence matrix for normal direction.
+        doublet = np.array([ [ -2/(np.pi*panel_i.length) if i == j else np.sum(np.multiply(panel_j.influence(panel_i.xc, panel_i.yc), rotation(*panel_i.normal, panel_j.angle))) for (i, panel_i) in enumerate(self.panels) ] for (j, panel_j) in enumerate(self.panels) ])
+
+        woke = [ sum(np.multiply(self.woke_panel.influence(panel.xc, panel.yc), rotation(*panel.normal, self.woke_panel.angle))) for panel in self.panels ]
+
+        # Kutta condition
+        kutta = np.zeros(self.num_panels + 1)
+        kutta[0] = 1.
+        kutta[-2] = -1.
+        kutta[-1] = 1.
+
+        # Matrix construction
+        An = np.zeros((self.num_panels + 1, self.num_panels + 1))
+        An[:-1, :-1] = doublet
+        An[:-1, -1] = woke
+        An[-1, :] = kutta
+
+        # Construct freestream RHS.
+        bn = np.append([ np.sum(np.multiply(self.u, panel.normal)) for panel in self.panels ], 0)
+        
+        # Solve system.
+        strengths = np.linalg.solve(An, bn)
+
+        # Update panel strengths.
+        for (panel, strength) in zip(self.panels, strengths):
+            panel.strength = strength
+        return strengths
+    
+    def aerodynamicsss(self, pressure = True):
+        """
+        Solves for the velocities of all panels and their pressure coefficients.
+        """
+        pans = np.append(self.panels, self.woke_panel)
+
+        # Construct matrix for tangential direction.
+        At = np.array([ [ 0. if i == j else np.sum(np.append(panel_i.velocity(panel_j.xc, panel_j.yc), panel_j.tangent)) for (i, panel_i) in enumerate(pans)] for (j, panel_j) in enumerate(pans) ])
+
+        # Surface velocities
+        qts = np.sum(At, axis=1)
+        # print(qts)
+
+        # Construct freestream tangential condition
+        bt = [ np.sum(np.append(self.u, panel.tangent)) for panel in pans ]
+
+        # Solve system.
+        vts = qts + bt
+
+        # Update panel velocities and pressure coefficients.
+        for (panel, vt) in zip(pans, vts):
+            panel.vt = vt
+            panel.cp = pressureCoefficient2D(0., vt, self.uniform.U) if pressure else 0
+        return vts
+
+    def liftCoefficient(self):
+        xs = [ panel.xs for panel in self.panels ]
+        c = abs(max(xs) - min(xs))
+        pans = np.append(self.panels, self.woke_panel)
+        strengths = [ panel.strength for panel in pans ]
+        strengths1 = [ strengths[i+1] - strengths[i] for i in range(len(strengths) - 1) ]
+        cl = (-2/self.uniform.U*np.sum(strengths1), 
+        -2*strengths[-1]/self.uniform.U, 
+        2/self.uniform.U*np.sum([ -panel1.cp*mag([panel1.xc - panel2.xc, panel1.yc - panel2.yc])*np.cos(panel1.angle)/c for (panel1, panel2) in zip(pans[:-1], pans[1:])]))
+
+        return cl
+    
+    # Compute errors
+    def error(self):
+        error = sum([ panel.strength*panel.length for panel in self.panels ])
+        print(f'Sum of sources: {error}')
+
+        return error
+
+    # Compute velocities
+    def velocity(self, x, y):
+        "Computes the velocity at a point (x, y) generated by all the panels."
+        vels = [ self.uniform.velocity(x, y)[i] + sum([ panel.velocity(x, y)[i] for panel in self.panels ]) for i in range(2) ]
+         
+        return vel
+
+    def potential(self, x, y):
+        "Computes the potential at a point (x, y) generated by all the panels."
+        return self.uniform.potential(x, y) + sum([ panel.potential(x, y) for panel in self.panels ])
+
+        
 
 class SourcePanel2DSolver():
     """
