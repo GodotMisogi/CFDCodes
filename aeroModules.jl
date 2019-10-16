@@ -629,25 +629,25 @@ struct DoubletSourcePanelSolver2D <: Solution
             # kutta[end] = 1.
 
             # Stronger Kutta condition
-            # kutta = zeros(num_panels + 1)
-            # kutta[1] = 1.
-            # kutta[2] = -1.
-            # kutta[end-2] = 1.
-            # kutta[end-1] = -1.
+            kutta = zeros(num_panels + 1)
+            kutta[1] = 1.
+            kutta[2] = -1.
+            kutta[end-2] = 1.
+            kutta[end-1] = -1.
 
             # LHS with explicit Kutta condition
-            # An = zeros(num_panels + 1, num_panels + 1)
-            # An[1:end-1, 1:end-1] = doublet_matrix
-            # An[1:end-1, end] = woke_vector 
-            # An[end, :] = kutta
+            An = zeros(num_panels + 1, num_panels + 1)
+            An[1:end-1, 1:end-1] = doublet_matrix
+            An[1:end-1, end] = woke_vector 
+            An[end, :] = kutta
 
             # LHS with implicit Kutta condition
-            An = zeros(num_panels, num_panels)
-            An = doublet_matrix
-            An[:, 1] = doublet_matrix[:, 1] - woke_vector 
-            An[:, end] = doublet_matrix[:, end] + woke_vector
+            # An = zeros(num_panels, num_panels)
+            # An = doublet_matrix
+            # An[:, 1] = doublet_matrix[:, 1] - woke_vector 
+            # An[:, end] = doublet_matrix[:, end] + woke_vector
 
-            b = zeros(num_panels)
+            b = zeros(num_panels + 1)
             if sources
                 # Source influence matrix
                 source_matrix = [ panel_j.sourceInfluence(panel_i.xc, panel_i.yc) for (i, panel_i) in enumerate(panels), (j, panel_j) in enumerate(panels) ]
@@ -661,10 +661,10 @@ struct DoubletSourcePanelSolver2D <: Solution
                 end
 
                 # Source RHS
-                b[1:end] = -source_matrix*source_vector
+                b[1:end-1] = -source_matrix*source_vector
             else
                 # Freestream RHS
-                b[1:end] = [ -sum(u.*(panel.xc, panel.yc)) for panel in panels ]
+                b[1:end-1] = [ -sum(u.*(panel.xc, panel.yc)) for panel in panels ]
             end
 
             # Solve system
@@ -675,7 +675,7 @@ struct DoubletSourcePanelSolver2D <: Solution
                 panel.doublet_strength = strength
             end
 
-            woke_panel.doublet_strength = strengths[end] - strengths[1]
+            woke_panel.doublet_strength = strengths[end]
 
             return strengths
         end
