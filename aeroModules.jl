@@ -166,7 +166,6 @@ function panelSolver2D(aeroproblem :: SourcePanelSolver2D, uniform :: Uniform2D)
     return strengths, vts, error
 end
 
-
 mutable struct VortexPanel2D <: Solution
     xs
     ys
@@ -608,7 +607,7 @@ struct DoubletSourcePanelSolver2D <: Solution
     solveStrengths
     aerodynamicsss
     liftCoefficient
-    function DoubletSourcePanelSolver2D(panels, uniform, sources=false)
+    function DoubletSourcePanelSolver2D(panels, uniform, sources=true)
         num_panels = length(panels)
         woke_panel = DoubletSourcePanel2D(panels[end].xe, panels[end].ye, 100000*panels[end].xe, panels[end].ye)
         u = uniform.magnitude.*(cos(uniform.angle), sin(uniform.angle))
@@ -689,33 +688,22 @@ struct DoubletSourcePanelSolver2D <: Solution
 
             # Update panel velocities, pressure and lift coefficients.
             cl = 0
-            if sources 
-                phi = [ sum(u.*(panel.xc, panel.yc)) + panel.doublet_strength for panel in panels ]
-                colengths = [ mag([panel1.xc - panel2.xc, panel1.yc - panel2.yc]) for (panel1, panel2) in zip(panels[1:end-1], panels[2:end]) ]
-                vts = [ (phi1 - phi2)/r for (phi1, phi2, r) in zip(phi[1:end-1], phi[2:end], colengths) ]
-                for (vt, panel) in zip(vts, panels)
-                    panel.vt = vt
-                    panel.cp = pressure ? pressureCoefficient2D(0., vt, uniform.magnitude) : 0.
+            for (i, panel) in enumerate(panels)
+                if panel == panels[1]
+                    R = mag([panels[2].xc - panels[1].xc, panels[2].yc - panels[1].yc])
+                    panel.vt = sources ? (panels[2].doublet_strength - panels[1].doublet_strength)/R + sum(u.*panel.tangent) : (panels[2].doublet_strength - panels[1].doublet_strength)/R
+                elseif panel == panels[end]
+                    R = mag([panels[end].xc - panels[end-1].xc, panels[end].yc - panels[end-1].yc])
+                    panel.vt = sources ? (panels[end].doublet_strength - panels[end-1].doublet_strength)/R + sum(u.*panel.tangent) : (panels[end].doublet_strength - panels[end-1].doublet_strength)/R 
+                else
+                    R = mag([panels[i+1].xc - panels[i-1].xc, panels[i+1].yc - panels[i-1].yc])
+                    panel.vt = sources ? (panels[i+1].doublet_strength - panels[i-1].doublet_strength)/R + sum(u.*panel.tangent) : (panels[i+1].doublet_strength - panels[i-1].doublet_strength)/R
                 end
-                cl = (sum([ -panel.cp*r*cos(panel.angle)/c for (panel, r) in zip(panels[1:end-1], colengths) ]), 2*woke_panel.doublet_strength/uniform.magnitude)
-            else
-                for (i, panel) in enumerate(panels)
-                    if panel == panels[1]
-                        R = mag([panels[2].xc - panels[1].xc, panels[2].yc - panels[1].yc])
-                        panel.vt = (panels[2].doublet_strength - panels[1].doublet_strength)/R
-                    elseif panel == panels[end]
-                        R = mag([panels[end].xc - panels[end-1].xc, panels[end].yc - panels[end-1].yc])
-                        panel.vt = (panels[end].doublet_strength - panels[end-1].doublet_strength)/R
-                    else
-                        R = mag([panels[i+1].xc - panels[i-1].xc, panels[i+1].yc - panels[i-1].yc])
-                        panel.vt = (panels[i+1].doublet_strength - panels[i-1].doublet_strength)/R
-                    end
-                    panel.cp = pressure ? pressureCoefficient2D(0., panel.vt, uniform.magnitude) : 0.
-                    cl = cl - panel.vt*R
-                end
-                cl = (cl/uniform.magnitude, -2*woke_panel.doublet_strength/uniform.magnitude)
-                vts = [ panel.vt for panel in panels ]
+                panel.cp = pressure ? pressureCoefficient2D(0., panel.vt, uniform.magnitude) : 0.
+                cl = cl + panel.vt*R
             end
+            cl = (cl/uniform.magnitude, 2*woke_panel.doublet_strength/uniform.magnitude)
+            vts = [ panel.vt for panel in panels ]
 
             return (vts, cl)
         end

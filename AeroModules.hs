@@ -1,19 +1,10 @@
 import Math.GaussianQuadratureIntegration
 import Numeric.LinearAlgebra
+import Data.Char
 
 integral = nIntegrate256
 
 type Number = Float
-
-getsFloats :: FilePath -> IO [Float]
-getsFloats path = do
-    contents <- readFile path
-    let someFloats = map read  . lines $ contents
-    return someFloats
-
-fileData :: String -> IO [[Float]]
-fileData str = readFile str >>=
-                \file -> return $ map ((map $ \x -> read x::Float) . words $) $ lines file
 
 data Solution = 
     Source2D Number Number Number |
@@ -81,15 +72,20 @@ instance SolvePanel Panel where
         len = panelLength panel
         angle = panelAngle panel
 
-    influenceMatrix panels@(SourcePanel2D _ _ : panels') = [ [ if panel_i == panel_j then 0.5*influencePotential panel_j xc yc else potential panel_j xc yc | panel_j <- panels, let (xc, yc) = colPoint (start panel_i) (end panel_i) ] | panel_i <- panels ]
+    influenceMatrix panels@(SourcePanel2D _ _ : panels') = a where 
+        srcMat = 
+            [ [ if panel_i == panel_j then 0.5*influencePotential panel_j xc yc else potential panel_j xc yc | panel_j <- panels, let (xc, yc) = colPoint (start panel_i) (end panel_i) ] | panel_i <- panels ]
 
     influenceMatrix panels@(DoubletPanel2D _ _ : panels') bc = 
-        | toLower(bc) == "dirichlet" = fromLists [ [ if panel_i == panel_j then 0.5 else influencePotential panel_j xc yc | panel_j <- panels, let (xc, yc) = colPoint (start panel_i) (end panel_i) ] | panel_i <- panels ]
-        | toLower(bc) == "neumann" = fromLists [ [ if panel_i == panel_j then 0.5 else sum $ influenceVelocity panel_j xc yc | panel_j <- panels, let (xc, yc) = colPoint (start panel_i) (end panel_i) ] | panel_i <- panels ]
+        | map toLower bc == "dirichlet" = fromLists [ [ if panel_i == panel_j then 0.5 else influencePotential panel_j xc yc | panel_j <- panels, let (xc, yc) = colPoint (start panel_i) (end panel_i) ] | panel_i <- panels ]
+        | map toLower bc == "neumann" = a where 
+        wokePanel = DoubletPanel2D (100000*xs, ys) (end trailing) where 
+            trailing = head panels
+            (xs, ys) = start trailing
+        a = fromLists [ [ if panel_i == panel_j then 0.5 else sum $ influenceVelocity panel_j xc yc | panel_j <- panels, let (xc, yc) = colPoint (start panel_i) (end panel_i) ] | panel_i <- panels ]
 
     -- influenceMatrix panels@(VortexPanel2D _ _ : panels') = [ [ if panel_i == panel_j then 0.5*potential panel_j xc yc else potential panel_j xc yc | panel_j <- panels, let (xc, yc) = colPoint (start panel_i) (end panel_i) ] | panel_i <- panels ]
 
-wakeVector panel
 
 eNorm = sqrt . sum . map (^2)
 
