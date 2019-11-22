@@ -78,14 +78,18 @@ instance SolvePanel Panel where
 
     influenceMatrix panels@(DoubletPanel2D _ _ : panels') bc = 
         | map toLower bc == "dirichlet" = fromLists [ [ if panel_i == panel_j then 0.5 else influencePotential panel_j xc yc | panel_j <- panels, let (xc, yc) = colPoint (start panel_i) (end panel_i) ] | panel_i <- panels ]
-        | map toLower bc == "neumann" = a where 
-        wokePanel = DoubletPanel2D (100000*xs, ys) (end trailing) where 
-            trailing = head panels
-            (xs, ys) = start trailing
-        a = fromLists [ [ if panel_i == panel_j then 0.5 else sum $ influenceVelocity panel_j xc yc | panel_j <- panels, let (xc, yc) = colPoint (start panel_i) (end panel_i) ] | panel_i <- panels ]
-
+        | map toLower bc == "neumann" = a where
+        wokeVector = [ influenceVelocity wokePanel xc yc, let (xc, yc) = colPoint (start panel) (end panel) | panel <- panels ]
+        dubMat = [ [ if panel_i == panel_j then 0.5 else sum $ influenceVelocity panel_j xc yc | panel_j <- panels, let (xc, yc) = colPoint (start panel_i) (end panel_i) ] | panel_i <- panels ]
+        kutta = 
+        a = fromBlocks [ [ dubMat, col wokeVector ],
+                         [ kutta ,       0        ] ]
+                
     -- influenceMatrix panels@(VortexPanel2D _ _ : panels') = [ [ if panel_i == panel_j then 0.5*potential panel_j xc yc else potential panel_j xc yc | panel_j <- panels, let (xc, yc) = colPoint (start panel_i) (end panel_i) ] | panel_i <- panels ]
 
+wokePanel panels = DoubletPanel2D (xs, ys) (100000*xs, ys) where 
+    trailing = head panels
+    (xs, ys) = start trailing
 
 eNorm = sqrt . sum . map (^2)
 
