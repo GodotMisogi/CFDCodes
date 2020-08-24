@@ -34,6 +34,25 @@ tuple<float, float> panelCoords(float x, float y, float x0, float y0, float angl
     return rotation(x - x0, y - y0, angle);
 }
 
+class Source2D
+{
+    public:
+        float strength, x0, y0;
+    
+    Source2D(float gamma, float x_0, float y_0)
+    {
+        strength = gamma, x0 = x_0, y0 = y_0;
+    }
+
+    tuple<float, float> velocity(float x, float y)
+    {
+        float u = -strength/(2*PI)*(y - y0)/(pow(x - x0, 2) + pow(y - y0, 2));
+        float v = strength/(2*PI)*(x - x0)/(pow(x - x0, 2) + pow(y - y0, 2));
+        
+        return make_tuple(u, v);
+    }
+};
+
 class Vortex2D
 {
     public:
@@ -165,7 +184,7 @@ class DoubletSourceSolver2D
         uniform = mrofinu;
     }
 
-    float *solveStrengths()
+    float solveStrengths()
     {
         // Calculates the influence of panel j on panel i.
         float doublet_matrix[num_panels][num_panels];
@@ -210,14 +229,18 @@ class DoubletSourceSolver2D
         // Building RHS
         for (int i = 0; i < num_panels; i++)
             for(int j = 0; j < num_panels; j++)
+            {
                 b[i] = source_matrix[i][j]*source_vector[j];
+                cout << "[ " << b[i] << " ]\n";
+            }
     }
 };
 
 void cosinePanels(DoubletSourcePanel2D *panels, float *x, float *y, int num_lines, int n = 40)
 {
     float r = (*max_element(x,x+num_lines) - *min_element(x,x+num_lines))/2.;
-    cout << *min_element(x,x+num_lines) << '\n';
+    cout << *max_element(x,x+num_lines) << '\n';
+    cout << r;
     float x_center = (*max_element(x,x+num_lines) + *min_element(x,x+num_lines))/2.;
     // cout << x_center << ", " << r << "Radius" << '\n';
     float x_circ[n];
@@ -284,8 +307,7 @@ int readCoords(string filename, float **x, float **y)
     if (file.is_open())
     {   
         while (getline(file, line))
-            ++number_of_lines;
-        cout << number_of_lines << '\n';
+            number_of_lines++;
         file.close();
     }
 
@@ -311,7 +333,8 @@ int readCoords(string filename, float **x, float **y)
 int main()
 {       
     float *x, *y;
-    int number_of_lines = readCoords("resources/ClarkY.dat", &x, &y);
+    int number_of_lines = readCoords("../resources/ClarkY.dat", &x, &y);
+    cout << number_of_lines << '\n';
     // Panel2D first(0.0, 0.0, 1.0, 1.0);
     // cout << first.length << endl << first.angle << endl << first.loc << endl;
     // VortexSourcePanel2D second(1.0, 1.0, 1.0, 2.0);

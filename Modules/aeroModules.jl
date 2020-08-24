@@ -304,8 +304,8 @@ mutable struct DoubletPanel2D <: Solution
     strength
     vt
     cp
-    potential
-    velocity
+    potential :: Function
+    velocity :: Function
     function DoubletPanel2D(xs, ys, xe, ye, strength=0.0, vt=0.0, cp=0.0)
         length = mag([ xe - xs, ye - ys ])
         angle = atan(ye - ys, xe - xs)
@@ -335,11 +335,11 @@ struct DoubletPanelSolver2D <: Solution
     """
     panels :: Array{DoubletPanel2D, 1}
     uniform :: Uniform2D
-    error
-    velocity
-    potential
-    solveStrengths
-    aerodynamicsss
+    error :: Function
+    velocity :: Function
+    potential :: Function
+    solveStrengths :: Function
+    aerodynamicsss :: Function
     function DoubletPanelSolver2D(panels, uniform)
         num_panels = length(panels)
         woke_panel = DoubletPanel2D(panels[end].xe, panels[end].ye, 1000*panels[end].xe, panels[end].ye)
@@ -444,12 +444,12 @@ struct VortexSourcePanelSolver2D <: Solution
     panels :: Array{SourcePanel2D, 1}
     uniform :: Uniform2D
     gamma
-    error
-    velocity
-    potential
-    solveStrengths
-    aerodynamicsss
-    liftCoefficient
+    error :: Function
+    velocity :: Function
+    potential :: Function
+    solveStrengths :: Function
+    aerodynamicsss :: Function
+    liftCoefficient :: Function
     function VortexSourcePanelSolver2D(panels, uniform, gamma=0.0)            
         # Construct source matrix for normal direction.
         source_matrix = [ i == j ? 0.5 : 0.5/π*panel_i.integral(panel_j.xc, panel_j.yc, cos(panel_j.angle), sin(panel_j.angle)) for (j, panel_j) in enumerate(panels), (i, panel_i) in enumerate(panels) ]
@@ -555,10 +555,10 @@ mutable struct DoubletSourcePanel2D <: Solution
     source_strength
     vt
     cp
-    sourceInfluence
-    doubletInfluence
-    potential
-    velocity
+    sourceInfluence :: Function
+    doubletInfluence :: Function
+    potential :: Function
+    velocity :: Function
     function DoubletSourcePanel2D(xs, ys, xe, ye, doublet_strength=0.0, source_strength=1.0, vt=0.0, cp=0.0)
         # Properties
         length = mag([xe - xs, ye - ys])
@@ -574,6 +574,8 @@ mutable struct DoubletSourcePanel2D <: Solution
         xsl, ysl, xel, yel = 0., 0., length, 0.
         xcl, ycl = length/2., 0
 
+
+        # Influence of panel g on panel s
         function sourceInfluence(xg, yg) 
             x, y = panelCoords(xg, yg, xs, ys, angle)
             return 1/(4π)*((x - xsl)*log((x - xsl)^2 + y^2) - (x - xel)log((x - xel)^2 + y^2) + 2y*(atan(y, x - xel) - atan(y, x)))
@@ -602,11 +604,11 @@ struct DoubletSourcePanelSolver2D <: Solution
     panels :: Array{DoubletSourcePanel2D, 1}
     uniform :: Uniform2D
     error
-    velocity
-    potential
-    solveStrengths
-    aerodynamicsss
-    liftCoefficient
+    velocity :: Function
+    potential :: Function
+    solveStrengths :: Function
+    aerodynamicsss :: Function
+    liftCoefficient :: Function
     function DoubletSourcePanelSolver2D(panels, uniform, sources=true)
         num_panels = length(panels)
         woke_panel = DoubletSourcePanel2D(panels[end].xe, panels[end].ye, 100000*panels[end].xe, panels[end].ye)

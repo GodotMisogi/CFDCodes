@@ -10,9 +10,6 @@ module panelSolver
         strength :: Float64
         x0 :: Float64
         y0 :: Float64
-        function Source2D(strength, x0, y0)
-
-        end
     end
 
     velocity(source :: Source2D, x :: Float64, y :: Float64) = (source.strength/(2π)*(x - source.x0)/((x - source.x0)^2 + (y - source.y0)^2), source.strength/(2π)*(y - source.y0)/((x - source.x0)^2 + (y - source.y0)^2))
@@ -53,7 +50,25 @@ module panelSolver
     stream(vortex :: Vortex2D, x :: Float64, y :: Float64) = -vortex.strength/(4π)*log((x - vortex.x0)^2 + (y - vortex.y0)^2)
     potential(vortex :: Vortex2D, x :: Float64, y :: Float64) = vortex.strength/(2π)*atan(y - vortex.y0, x - vortex.x0)
 
+
+    # Panel structs
     abstract type Panel <: Solution end
+
+    struct Panel2D <: Panel
+        points :: Array{(Float64, Float64), 1} 
+        collocation :: (Float64, Float64)
+        length :: Float64
+        angle :: Float64
+        loc :: T where T <: AbstractString
+        function Panel2D(points)
+            xe, xs, ye, ys = points[1,1], points[1,2], points[2,1], points[2,2]
+            collocation = (xc, yc) = (xe + xs)/2.0, (ye + ys)/2.0
+            length = mag([ xe - xs, ye - ys ])
+            angle = xe <= xs ? acos((ye - ys)/length) : π + acos(-(ye - ys)/length)
+            loc = angle <= π ? "upper" : "lower"
+            new(points, collocation, length, angle, loc)
+        end 
+    end
 
     mutable struct SourcePanel2D <: Panel
         xs :: Float64
@@ -99,25 +114,7 @@ module panelSolver
         end 
     end
 
-    struct Panel2D <: Panel
-        xs :: Float64
-        ys :: Float64
-        xe :: Float64 
-        ye :: Float64
-        xc :: Float64
-        yc :: Float64
-        length :: Float64
-        angle :: Float64
-        loc :: T where T <: AbstractString
-        function Panel2D(xs, ys, xe, ye)
-            xc, yc   = (xe + xs)/2.0, (ye + ys)/2.0
-            length = mag([ xe - xs, ye - ys ])
-            angle = xe <= xs ? acos((ye - ys)/length) : π + acos(-(ye - ys)/length)
-            loc = angle <= π ? "upper" : "lower"
-            new(xs, ys, xe, ye, xc, yc, length, angle, loc)
-        end 
-    end
-
+    # General
     integral(panel :: Panel, x :: Float64, y :: Float64, dxdz :: Float64, dydz :: Float64) = quadgk(s -> ((x - (panel.xs - s*sin(panel.angle)))*dxdz + (y - (panel.ys + s*cos(panel.angle)))*dydz)/((x - (panel.xs - s*sin(panel.angle)))^2 + (y - (panel.ys + s*cos(panel.angle)))^2), 0., panel.length, atol=1e-10)[1]
 
     potential(panel :: Panel, x :: Float64, y :: Float64) = quadgk( (s) -> log((x - (panel.xs - s*sin(panel.angle)))^2 + (y - (panel.ys + s*cos(panel.angle)))^2), 0, panel.length, atol=1e-10)[1]
@@ -320,5 +317,69 @@ module panelSolver
         panels = [ Panel2D(x_ends[i], y_ends[i], x_ends[i+1], y_ends[i+1]) for i in 1:n ]
 
         return panels
+    end
+
+    function NACA4(digits :: Tuple, chord, n, closed_te=false)
+    
+        # Airfoil characteristics
+        camber = digits[1]/100
+        position = digits[2]/10
+        t_by_c = (10*digits[3] + digits[4])/100
+    
+        # Cosine spacing
+        angles = range(0, stop = π, length = n + 1)
+        xs = reverse([ chord*(1 - 0.5*(1 - cos(beta))) for beta in angles ] )
+    
+        # Thickness distribution
+        thickness = closed_te ? [ 5*t_by_c*chord*(0.2969*sqrt(xc/chord) - 0.126*xc/chord - 0.3516*(xc/chord)^2 + 0.2843*(xc/chord)^3 - 0.1036*(xc/chord)^4) for xc in xs ] : [ 5*t_by_c*chord*(0.2969*sqrt(xc/chord) - 0.126*xc/chord - 0.3516*(xc/chord)^2 + 0.2843*(xc/chord)^3 - 0.1015*(xc/chord)^4) for xc in xs ] 
+        
+        if position == 0.0 || camber == 0.0
+            x_upper = xs
+            y_upper = thickness
+            x_lower = xs
+            y_lower = -thickness
+        else
+            camberline = [ xc <= position*camber ? (camber/position^2)*xc*(2*position-xc/chord) : (camber/(1-position)^2)*(chord - xc)*(1 + xc/chord - 2*position) for xc in xs ]
+            gradients = [ xc <= position*camber ? atan((2*camber/position)*(-xc/(chord*position) + 1)) : atan((2*camber/(1 - position^2))*(position - xc/chord)) for xc in xs ] 
+            x_upper = [ xc - thicc*sin(thot) for (xc, thicc, thot) in zip(xs, thickness, gradients) ] 
+            y_upper = [ cam + thicc*cos(thot) for (cam, thicc, thot) in zip(camberline, thickness, gradients) ]
+            x_lower = [ xc + thicc*sin(thot) for (xc, thicc, thot) in zip(xs, thickness, gradients) ] 
+            y_lower = [ cam - thicc*cos(thot) for (cam, thicc, thot) in zip(camberline, thickness, gradients) ]
+        end
+    
+        (X, Y) = append!(reverse(x_upper), x_lower), append!(reverse(y_upper), y_lower)
+            
+        return (X, Y)
+    end
+
+    function cosineAirfoil(x :: Array{<:Real}, y :: Array{<:Real}, n :: Integer = 40)
+        """
+        Discretises a geometry consisting of x and y coordinates into panels by projecting the x-coordinate of a circle onto the geometry.
+        """
+        r = (maximum(x) - minimum(x))/2.
+        x_center = (maximum(x) + minimum(x))/2.
+        x_circ = x_center .+ r.*cos.(range(0.0, stop = 2π, length = n+1))
+    
+        x_ends = copy(x_circ)
+        y_ends = zeros(length(x_ends))
+    
+        x, y = push!(x, x[1]), push!(y, y[1])
+    
+        j = 1
+        for i in 1:n
+            while j < length(x)
+                if ((x[j] <= x_ends[i] <= x[j+1]) | (x[j+1] <= x_ends[i] <= x[j]))
+                    break
+                else
+                    j += 1
+                end
+            end
+            m = (y[j+1] - y[j])/(x[j+1] - x[j])
+            c = y[j+1] - m*x[j+1]
+            y_ends[i] = m*x_ends[i] + c
+            y_ends[n+1] = y_ends[1]
+        end
+    
+        return (x_ends, y_ends)
     end
 end

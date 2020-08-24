@@ -1,2 +1,2 @@
-# CFDPyRun
-This notebook consists of my run-through of Prof. Lorena Barba's CFDPython course.
+# CFDCodes
+This repository consists of codes for CFD solvers written in different languages.

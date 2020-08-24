@@ -1,6 +1,6 @@
 subroutine matrx(a,n,g)
-    real, dimension(400,400) :: a, temp
-    real, dimension(400) :: g
+    real, dimension(:,:) :: a, temp
+    real, dimension(:) :: g
 
     ! Initialisation
     do i = 1, n-1
@@ -53,9 +53,9 @@ end
 
 subroutine constantPotentialDoubletSource(airfoil)
     character(100), intent(in) :: airfoil
-    real, dimension(400, 2) :: ep, pt1, pt2, co, ept
-    real, dimension(400,400) ::  a, b
-    real, dimension(400) :: g, sig, phi, dl, th
+    real, dimension(:, 2) :: ep, pt1, pt2, co, ept
+    real, dimension(:,:) ::  a, b
+    real, dimension(:) :: g, sig, phi, dl, th
 
     open(8, file=airfoil)
 
@@ -194,9 +194,9 @@ end
 
 subroutine constantStrengthDoublet(airfoil)
     character(100) :: airfoil
-    real, dimension(400,2) :: ep, ept, pt1, pt2, co
-    real, dimension(400, 400) :: a, b
-    real, dimension(400) :: th, g
+    real, dimension(:,2) :: ep, ept, pt1, pt2, co
+    real, dimension(:, :) :: a, b
+    real, dimension(:) :: th, g
 
     open(8, file='cpd.dat', status='new')
     open(9, file=airfoil, status='old')
@@ -269,7 +269,7 @@ subroutine constantStrengthDoublet(airfoil)
             u = ul*cos(-th(j)) + vl*sin(-th(j))
             v = -ul*sin(-th(j)) + vl*cos(-th(j))
 
-            ! A(i,j) is the component of velocity induced in the direction normal to panel I by panel J at the Ith collection point.
+            ! A(i,j) is the component of velocity induced in the direction normal to panel I by panel J at the Ith collocation point.
 
             a(i,j) = -u*sin(th(i)) + w*cos(th(i))
             b(i,j) = u*cos(th(i)) + w*sin(th(i))
