@@ -256,7 +256,7 @@ function NACA4(digits::Tuple, c, n, closed_te = false, split = false)
     xs = reverse([ c * (1 - 0.5 * (1 - cos(beta))) for beta in angles ])
 
     # Thickness distribution
-    thickness = closed_te ? [ 5 * t_by_c * c * (0.2969 * sqrt(xc / c) - 0.126 * xc / c - 0.3516 * (xc / c)^2 + 0.2843 * (xc / c)^3 - 0.1036 * (xc / c)^4) for xc in xs ] : [ 5 * t_by_c * c * (0.2969 * sqrt(xc / c) - 0.126 * xc / c - 0.3516 * (xc / c)^2 + 0.2843 * (xc / c)^3 - 0.1015 * (xc / c)^4) for xc in xs ] 
+    thickness = [ 5 * t_by_c * c * (0.2969 * sqrt(xc / c) - 0.126 * xc / c - 0.3516 * (xc / c)^2 + 0.2843 * (xc / c)^3 - (closed_te ? 0.1036 : 1015) * (xc / c)^4) for xc in xs ]
     
     if p == 0.0 || m == 0.0
         x_upper = xs
@@ -269,11 +269,11 @@ function NACA4(digits::Tuple, c, n, closed_te = false, split = false)
         # Compute gradients
         gradients = [ xc < p * c ? atan((2 * m / p^2) * (p - xc / c)) : atan((2 * m / (1 - p)^2) * (p - xc / c)) for xc in xs ] 
         # Upper surface
-        x_upper = [ xc - thicc * sin(thot) for (xc, thicc, thot) in zip(xs, thickness, gradients) ] 
-        y_upper = [ cam + thicc * cos(thot) for (cam, thicc, thot) in zip(mline, thickness, gradients) ]
+        x_upper = xs .- thickness .* sin(gradients) 
+        y_upper = mline .+ thickness .* cos(gradients)
         # Lower surface
-        x_lower = [ xc + thicc * sin(thot) for (xc, thicc, thot) in zip(xs, thickness, gradients) ] 
-        y_lower = [ cam - thicc * cos(thot) for (cam, thicc, thot) in zip(mline, thickness, gradients) ]
+        x_lower = xs .+ thickness .* sin(gradients) 
+        y_lower = mline .- thickness .* cos(gradients)
     end
 
     if split
